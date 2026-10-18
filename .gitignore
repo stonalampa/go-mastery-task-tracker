@@ -1,0 +1,10 @@
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Build output
+bin/
+
+# Local task data created by running task-cli in the repo
+tasks.json
