@@ -6,16 +6,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
+	"unicode"
 
 	"github.com/stonalampa/go-mastery-task-tracker/internal/task"
 )
-
-// cellEscaper shows characters that would break the list table as visible
-// escapes; the task file keeps the description exactly as typed.
-var cellEscaper = strings.NewReplacer("\t", `\t`, "\n", `\n`, "\r", `\r`)
 
 // taskFileName is the task file, relative to the current directory.
 const taskFileName = "tasks.json"
@@ -93,13 +91,29 @@ func list(args []string, stdout, stderr io.Writer) int {
 	w := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ID\tSTATUS\tDESCRIPTION\tCREATED\tUPDATED")
 	for _, t := range tasks {
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", t.ID, t.Status, cellEscaper.Replace(t.Description),
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", t.ID, t.Status, escapeControl(t.Description),
 			t.CreatedAt.Local().Format(timeLayout), t.UpdatedAt.Local().Format(timeLayout))
 	}
 	if err := w.Flush(); err != nil {
 		return fail(stderr, err)
 	}
 	return 0
+}
+
+// escapeControl shows control characters (tab, newline, ESC, ...) as Go
+// escapes such as \t or \x1b, so a description can neither break the list
+// table nor send commands to the terminal. The task file keeps it as typed.
+func escapeControl(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if !unicode.IsControl(r) {
+			b.WriteRune(r)
+			continue
+		}
+		q := strconv.QuoteRune(r) // e.g. '\t' or '\x1b', with the quotes
+		b.WriteString(q[1 : len(q)-1])
+	}
+	return b.String()
 }
 
 // fail reports err on stderr and returns the error exit code.
