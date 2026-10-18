@@ -45,6 +45,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return list(args[1:], stdout, stderr)
 	case "update":
 		return update(args[1:], stdout, stderr)
+	case "delete":
+		return remove(args[1:], stdout, stderr)
 	default:
 		return failUsage(stderr, fmt.Errorf("unknown command %q", args[0]))
 	}
@@ -121,6 +123,29 @@ func update(args []string, stdout, stderr io.Writer) int {
 		return fail(stderr, err)
 	}
 	fmt.Fprintf(stdout, "Task %d updated\n", id)
+	return 0
+}
+
+// remove implements the delete command (delete is a Go builtin).
+func remove(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 1 {
+		return failUsage(stderr, errors.New("delete takes exactly one argument: <id>"))
+	}
+	id, err := parseID(args[0])
+	if err != nil {
+		return failUsage(stderr, err)
+	}
+	f, err := task.Load(taskFileName)
+	if err != nil {
+		return fail(stderr, err)
+	}
+	if err := f.Delete(id); err != nil {
+		return fail(stderr, err)
+	}
+	if err := task.Save(taskFileName, f); err != nil {
+		return fail(stderr, err)
+	}
+	fmt.Fprintf(stdout, "Task %d deleted\n", id)
 	return 0
 }
 
