@@ -20,9 +20,34 @@ func Load(path string) (*File, error) {
 	}
 	var f File
 	if err := json.Unmarshal(data, &f); err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", path, err)
+		return nil, fmt.Errorf("%s is not valid JSON: %w", path, err)
+	}
+	if err := f.checkIDs(); err != nil {
+		return nil, fmt.Errorf("%s is invalid: %w", path, err)
 	}
 	return &f, nil
+}
+
+// checkIDs rejects a task file whose IDs could be reused or are unusable
+// (ADR-0001): nextId must be at least 1 and above every task ID, and task
+// IDs must be positive and unique.
+func (f *File) checkIDs() error {
+	if f.NextID < 1 {
+		return fmt.Errorf("nextId %d must be at least 1", f.NextID)
+	}
+	seen := make(map[int]bool, len(f.Tasks))
+	for _, t := range f.Tasks {
+		switch {
+		case t.ID < 1:
+			return fmt.Errorf("task ID %d must be at least 1", t.ID)
+		case t.ID >= f.NextID:
+			return fmt.Errorf("nextId %d is not greater than task ID %d", f.NextID, t.ID)
+		case seen[t.ID]:
+			return fmt.Errorf("task ID %d appears more than once", t.ID)
+		}
+		seen[t.ID] = true
+	}
+	return nil
 }
 
 // Save writes f to path atomically: it writes a temporary file in the same
