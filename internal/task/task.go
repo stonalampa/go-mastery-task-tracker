@@ -106,3 +106,14 @@ func (f *File) Update(id int, description string, now time.Time) error {
 	f.Tasks[i].UpdatedAt = now
 	return nil
 }
+
+// Delete removes the task with the given ID. Its ID is never reused,
+// because NextID is left as is (ADR-0001).
+func (f *File) Delete(id int) error {
+	i, err := f.find(id)
+	if err != nil {
+		return err
+	}
+	f.Tasks = slices.Delete(f.Tasks, i, i+1)
+	return nil
+}
