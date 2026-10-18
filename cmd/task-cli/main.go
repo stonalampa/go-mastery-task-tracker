@@ -2,9 +2,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"text/tabwriter"
 	"time"
 
 	"github.com/stonalampa/go-mastery-task-tracker/internal/task"
@@ -36,31 +38,73 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "add":
 		return add(args[1:], stdout, stderr)
+	case "list":
+		return list(args[1:], stdout, stderr)
 	default:
-		fmt.Fprintf(stderr, "error: unknown command %q\n%s", args[0], usage)
-		return 1
+		return failUsage(stderr, fmt.Errorf("unknown command %q", args[0]))
 	}
 }
 
 func add(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprintf(stderr, "error: add takes exactly one argument: <description>\n%s", usage)
-		return 1
+		return failUsage(stderr, errors.New("add takes exactly one argument: <description>"))
 	}
 	f, err := task.Load(taskFileName)
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return fail(stderr, err)
 	}
 	t, err := f.Add(args[0], time.Now().UTC())
 	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return fail(stderr, err)
 	}
 	if err := task.Save(taskFileName, f); err != nil {
-		fmt.Fprintf(stderr, "error: %v\n", err)
-		return 1
+		return fail(stderr, err)
 	}
 	fmt.Fprintf(stdout, "Task added successfully (ID: %d)\n", t.ID)
 	return 0
+}
+
+func list(args []string, stdout, stderr io.Writer) int {
+	if len(args) > 1 {
+		return failUsage(stderr, errors.New("list takes at most one argument: [todo|in-progress|done]"))
+	}
+	var status task.Status
+	if len(args) == 1 {
+		var err error
+		if status, err = task.ParseStatus(args[0]); err != nil {
+			return failUsage(stderr, err)
+		}
+	}
+	f, err := task.Load(taskFileName)
+	if err != nil {
+		return fail(stderr, err)
+	}
+	tasks := f.List(status)
+	if len(tasks) == 0 {
+		fmt.Fprintln(stdout, "No tasks found.")
+		return 0
+	}
+	const timeLayout = "2006-01-02 15:04"
+	w := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tSTATUS\tDESCRIPTION\tCREATED\tUPDATED")
+	for _, t := range tasks {
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", t.ID, t.Status, t.Description,
+			t.CreatedAt.Local().Format(timeLayout), t.UpdatedAt.Local().Format(timeLayout))
+	}
+	if err := w.Flush(); err != nil {
+		return fail(stderr, err)
+	}
+	return 0
+}
+
+// fail reports err on stderr and returns the error exit code.
+func fail(stderr io.Writer, err error) int {
+	fmt.Fprintf(stderr, "error: %v\n", err)
+	return 1
+}
+
+// failUsage reports err followed by the usage text and returns the error exit code.
+func failUsage(stderr io.Writer, err error) int {
+	fmt.Fprintf(stderr, "error: %v\n%s", err, usage)
+	return 1
 }

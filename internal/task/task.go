@@ -2,7 +2,10 @@
 package task
 
 import (
+	"cmp"
 	"errors"
+	"fmt"
+	"slices"
 	"strings"
 	"time"
 )
@@ -16,6 +19,16 @@ const (
 	StatusInProgress Status = "in-progress"
 	StatusDone       Status = "done"
 )
+
+// ParseStatus returns the status named s, or an error if there is none.
+func ParseStatus(s string) (Status, error) {
+	switch st := Status(s); st {
+	case StatusTodo, StatusInProgress, StatusDone:
+		return st, nil
+	default:
+		return "", fmt.Errorf("unknown status %q", s)
+	}
+}
 
 // ErrEmptyDescription is returned when a description is empty or only spaces.
 var ErrEmptyDescription = errors.New("description must not be empty")
@@ -51,4 +64,17 @@ func (f *File) Add(description string, now time.Time) (Task, error) {
 	f.NextID++
 	f.Tasks = append(f.Tasks, t)
 	return t, nil
+}
+
+// List returns the tasks with the given status, sorted by ID.
+// The empty status lists all tasks.
+func (f *File) List(status Status) []Task {
+	var tasks []Task
+	for _, t := range f.Tasks {
+		if status == "" || t.Status == status {
+			tasks = append(tasks, t)
+		}
+	}
+	slices.SortFunc(tasks, func(a, b Task) int { return cmp.Compare(a.ID, b.ID) })
+	return tasks
 }
