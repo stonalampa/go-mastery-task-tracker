@@ -161,3 +161,21 @@ func TestListRejectsInvalidArguments(t *testing.T) {
 		})
 	}
 }
+
+func TestListEscapesControlCharactersInDescriptions(t *testing.T) {
+	t.Chdir(t.TempDir())
+	// JSON "\t", "\n" and "\r" decode to a real tab, newline and carriage return.
+	writeTaskFile(t, `{"nextId": 2, "tasks": [{"id": 1, "description": "a\tb\nc\rd", "status": "todo",
+		"createdAt": "2026-10-17T08:15:00Z", "updatedAt": "2026-10-17T08:15:00Z"}]}`)
+	var stdout, stderr bytes.Buffer
+
+	code := run([]string{"list"}, &stdout, &stderr)
+
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+	want := []string{`1 todo a\tb\nc\rd`}
+	if got := listedTasks(t, stdout.String()); !slices.Equal(got, want) {
+		t.Errorf("listed tasks = %q, want %q", got, want)
+	}
+}

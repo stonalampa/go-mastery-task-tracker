@@ -6,11 +6,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/stonalampa/go-mastery-task-tracker/internal/task"
 )
+
+// cellEscaper shows characters that would break the list table as visible
+// escapes; the task file keeps the description exactly as typed.
+var cellEscaper = strings.NewReplacer("\t", `\t`, "\n", `\n`, "\r", `\r`)
 
 // taskFileName is the task file, relative to the current directory.
 const taskFileName = "tasks.json"
@@ -88,7 +93,7 @@ func list(args []string, stdout, stderr io.Writer) int {
 	w := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ID\tSTATUS\tDESCRIPTION\tCREATED\tUPDATED")
 	for _, t := range tasks {
-		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", t.ID, t.Status, t.Description,
+		fmt.Fprintf(w, "%d\t%s\t%s\t%s\t%s\n", t.ID, t.Status, cellEscaper.Replace(t.Description),
 			t.CreatedAt.Local().Format(timeLayout), t.UpdatedAt.Local().Format(timeLayout))
 	}
 	if err := w.Flush(); err != nil {
