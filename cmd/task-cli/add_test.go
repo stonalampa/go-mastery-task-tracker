@@ -134,3 +134,39 @@ func TestAddRejectsInvalidInput(t *testing.T) {
 		})
 	}
 }
+
+func TestAddKeepsTaskFilePermissions(t *testing.T) {
+	t.Run("new task file is private", func(t *testing.T) {
+		t.Chdir(t.TempDir())
+		var stdout, stderr bytes.Buffer
+
+		run([]string{"add", "Buy milk"}, &stdout, &stderr)
+
+		assertMode(t, 0o600)
+	})
+	t.Run("existing task file keeps its mode", func(t *testing.T) {
+		t.Chdir(t.TempDir())
+		if err := os.WriteFile("tasks.json", []byte(`{"nextId": 1, "tasks": []}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod("tasks.json", 0o640); err != nil {
+			t.Fatal(err)
+		}
+		var stdout, stderr bytes.Buffer
+
+		run([]string{"add", "Buy milk"}, &stdout, &stderr)
+
+		assertMode(t, 0o640)
+	})
+}
+
+func assertMode(t *testing.T, want fs.FileMode) {
+	t.Helper()
+	info, err := os.Stat("tasks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != want {
+		t.Errorf("task file mode = %v, want %v", got, want)
+	}
+}

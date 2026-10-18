@@ -45,9 +45,12 @@ func Save(path string, f *File) (err error) {
 			err = fmt.Errorf("saving %s: %w", path, err)
 		}
 	}()
-	// CreateTemp uses 0600; the task file is ordinary user data.
-	if err = tmp.Chmod(0o644); err != nil {
-		return err
+	// Keep the mode of an existing task file; a new one stays at
+	// CreateTemp's private 0600.
+	if info, statErr := os.Stat(path); statErr == nil {
+		if err = tmp.Chmod(info.Mode().Perm()); err != nil {
+			return err
+		}
 	}
 	if _, err = tmp.Write(data); err != nil {
 		return err
