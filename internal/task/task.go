@@ -30,6 +30,9 @@ func ParseStatus(s string) (Status, error) {
 	}
 }
 
+// ErrNotFound is returned, wrapped with the task ID, when no task has that ID.
+var ErrNotFound = errors.New("not found")
+
 // ErrEmptyDescription is returned when a description is empty or only spaces.
 var ErrEmptyDescription = errors.New("description must not be empty")
 
@@ -47,6 +50,16 @@ type Task struct {
 type File struct {
 	NextID int    `json:"nextId"`
 	Tasks  []Task `json:"tasks"`
+}
+
+// find returns the index of the task with the given ID.
+func (f *File) find(id int) (int, error) {
+	for i, t := range f.Tasks {
+		if t.ID == id {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("task %d %w", id, ErrNotFound)
 }
 
 // Add records a new task with status todo, created and updated at now.
@@ -77,4 +90,19 @@ func (f *File) List(status Status) []Task {
 	}
 	slices.SortFunc(tasks, func(a, b Task) int { return cmp.Compare(a.ID, b.ID) })
 	return tasks
+}
+
+// Update replaces the description of the task with the given ID and sets
+// its updated time to now.
+func (f *File) Update(id int, description string, now time.Time) error {
+	if strings.TrimSpace(description) == "" {
+		return ErrEmptyDescription
+	}
+	i, err := f.find(id)
+	if err != nil {
+		return err
+	}
+	f.Tasks[i].Description = description
+	f.Tasks[i].UpdatedAt = now
+	return nil
 }
