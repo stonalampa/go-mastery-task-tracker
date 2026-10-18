@@ -43,6 +43,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return add(args[1:], stdout, stderr)
 	case "list":
 		return list(args[1:], stdout, stderr)
+	case "update":
+		return update(args[1:], stdout, stderr)
 	default:
 		return failUsage(stderr, fmt.Errorf("unknown command %q", args[0]))
 	}
@@ -98,6 +100,38 @@ func list(args []string, stdout, stderr io.Writer) int {
 		return fail(stderr, err)
 	}
 	return 0
+}
+
+func update(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 2 {
+		return failUsage(stderr, errors.New("update takes exactly two arguments: <id> <description>"))
+	}
+	id, err := parseID(args[0])
+	if err != nil {
+		return failUsage(stderr, err)
+	}
+	f, err := task.Load(taskFileName)
+	if err != nil {
+		return fail(stderr, err)
+	}
+	if err := f.Update(id, args[1], time.Now().UTC()); err != nil {
+		return fail(stderr, err)
+	}
+	if err := task.Save(taskFileName, f); err != nil {
+		return fail(stderr, err)
+	}
+	fmt.Fprintf(stdout, "Task %d updated\n", id)
+	return 0
+}
+
+// parseID parses a task ID argument, which must be a positive whole number.
+func parseID(s string) (int, error) {
+	// ParseUint rejects any sign ("+1", "-1"); IntSize-1 bits always fit an int.
+	id, err := strconv.ParseUint(s, 10, strconv.IntSize-1)
+	if err != nil || id == 0 {
+		return 0, fmt.Errorf("invalid task ID %q: must be a positive whole number", s)
+	}
+	return int(id), nil
 }
 
 // escapeControl shows control characters (tab, newline, ESC, ...) as Go
