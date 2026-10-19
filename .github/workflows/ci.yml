@@ -10,4 +10,4 @@ permissions:
 
 jobs:
   ci:
-    uses: stonalampa/.github/.github/workflows/go-ci.yml@add-go-ci
+    uses: stonalampa/.github/.github/workflows/go-ci.yml@v1
