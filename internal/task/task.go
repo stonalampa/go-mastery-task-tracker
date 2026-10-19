@@ -117,3 +117,18 @@ func (f *File) Delete(id int) error {
 	f.Tasks = slices.Delete(f.Tasks, i, i+1)
 	return nil
 }
+
+// Mark sets the status of the task with the given ID and its updated time
+// to now. Marking a task with the status it already has changes nothing.
+func (f *File) Mark(id int, status Status, now time.Time) error {
+	i, err := f.find(id)
+	if err != nil {
+		return err
+	}
+	if f.Tasks[i].Status == status {
+		return nil
+	}
+	f.Tasks[i].Status = status
+	f.Tasks[i].UpdatedAt = now
+	return nil
+}

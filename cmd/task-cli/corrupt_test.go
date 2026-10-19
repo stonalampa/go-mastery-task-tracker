@@ -14,6 +14,8 @@ var commandsUsingTaskFile = [][]string{
 	{"add", "Buy milk"},
 	{"update", "1", "Buy bread"},
 	{"delete", "1"},
+	{"mark-in-progress", "1"},
+	{"mark-done", "1"},
 }
 
 func TestCorruptTaskFileIsReportedAndLeftUntouched(t *testing.T) {

@@ -47,6 +47,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return update(args[1:], stdout, stderr)
 	case "delete":
 		return remove(args[1:], stdout, stderr)
+	case "mark-in-progress":
+		return mark(task.StatusInProgress, args[1:], stdout, stderr)
+	case "mark-done":
+		return mark(task.StatusDone, args[1:], stdout, stderr)
 	default:
 		return failUsage(stderr, fmt.Errorf("unknown command %q", args[0]))
 	}
@@ -185,4 +189,28 @@ func fail(stderr io.Writer, err error) int {
 func failUsage(stderr io.Writer, err error) int {
 	fmt.Fprintf(stderr, "error: %v\n%s", err, usage)
 	return 1
+}
+
+// mark implements mark-in-progress and mark-done: the command name decides
+// the status, the only argument is the task ID.
+func mark(status task.Status, args []string, stdout, stderr io.Writer) int {
+	if len(args) != 1 {
+		return failUsage(stderr, fmt.Errorf("mark-%s takes exactly one argument: <id>", status))
+	}
+	id, err := parseID(args[0])
+	if err != nil {
+		return failUsage(stderr, err)
+	}
+	f, err := task.Load(taskFileName)
+	if err != nil {
+		return fail(stderr, err)
+	}
+	if err := f.Mark(id, status, time.Now().UTC()); err != nil {
+		return fail(stderr, err)
+	}
+	if err := task.Save(taskFileName, f); err != nil {
+		return fail(stderr, err)
+	}
+	fmt.Fprintf(stdout, "Task %d marked %s\n", id, status)
+	return 0
 }
