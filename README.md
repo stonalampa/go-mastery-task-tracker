@@ -90,14 +90,14 @@ Times are stored in UTC and shown in local time.
 
 Guarantees:
 
-- **IDs are never reused.** `nextId` only increases. After deleting task 3, the next task gets ID 4, so an ID you remember never points at a different task ([ADR-0001](docs/adr/0001-task-file-keeps-a-monotonic-id-counter.md)).
+- **IDs are never reused.** `nextId` only increases. After deleting task 3, the next task gets ID 4, so an ID you remember never points at a different task ([ADR-0001](docs/adr/0001-task-file-keeps-a-monotonic-id-counter.md)). This holds as long as two `task-cli` processes don't run at the same moment (see the limitations below).
 - **Saves are atomic.** A command that changes tasks writes a temporary file in the same directory, syncs it, and renames it over `tasks.json`; a command that fails or only reads never writes. A crash leaves the old file or the new one, never a half-written file. An existing file keeps its permissions, and a new file is private (`0600`) ([ADR-0002](docs/adr/0002-whole-file-atomic-rewrite-without-locking.md)).
 - **A damaged file is never overwritten.** Invalid JSON, or IDs that could collide (`nextId` not above every task ID, duplicate IDs, IDs below 1), make every command fail with an error. Nothing is written.
 - **Marking a task with the status it already has changes nothing**, and its `updatedAt` stays the same.
 
 Known limitations:
 
-- There is no file locking. Two `task-cli` processes running at the same moment can lose one of the two changes. This is acceptable for a single-user CLI and is documented in ADR-0002.
+- There is no file locking. Two `task-cli` processes running at the same moment can lose one of the two changes, and two simultaneous `add`s can both report the same ID. This is acceptable for a single-user CLI and is documented in ADR-0002.
 - Statuses read from `tasks.json` are not validated: a hand-edited unknown status (e.g. `"blocked"`) loads and is listed as is.
 - `list` shows control characters in a description (tab, newline, terminal escapes) as visible escapes such as `\t` or `\x1b`. The task file keeps the description exactly as it was typed.
 
