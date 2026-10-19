@@ -91,13 +91,14 @@ Times are stored in UTC and shown in local time.
 Guarantees:
 
 - **IDs are never reused.** `nextId` only increases. After deleting task 3, the next task gets ID 4, so an ID you remember never points at a different task ([ADR-0001](docs/adr/0001-task-file-keeps-a-monotonic-id-counter.md)).
-- **Saves are atomic.** Each command writes a temporary file in the same directory, syncs it, and renames it over `tasks.json`. A crash leaves the old file or the new one, never a half-written file. An existing file keeps its permissions, and a new file is private (`0600`) ([ADR-0002](docs/adr/0002-whole-file-atomic-rewrite-without-locking.md)).
+- **Saves are atomic.** A command that changes tasks writes a temporary file in the same directory, syncs it, and renames it over `tasks.json`; a command that fails or only reads never writes. A crash leaves the old file or the new one, never a half-written file. An existing file keeps its permissions, and a new file is private (`0600`) ([ADR-0002](docs/adr/0002-whole-file-atomic-rewrite-without-locking.md)).
 - **A damaged file is never overwritten.** Invalid JSON, or IDs that could collide (`nextId` not above every task ID, duplicate IDs, IDs below 1), make every command fail with an error. Nothing is written.
 - **Marking a task with the status it already has changes nothing**, and its `updatedAt` stays the same.
 
 Known limitations:
 
 - There is no file locking. Two `task-cli` processes running at the same moment can lose one of the two changes. This is acceptable for a single-user CLI and is documented in ADR-0002.
+- Statuses read from `tasks.json` are not validated: a hand-edited unknown status (e.g. `"blocked"`) loads and is listed as is.
 - `list` shows control characters in a description (tab, newline, terminal escapes) as visible escapes such as `\t` or `\x1b`. The task file keeps the description exactly as it was typed.
 
 ## Go concepts this project practises
@@ -105,8 +106,8 @@ Known limitations:
 - **Testable main.** `main` only calls `run(args, stdout, stderr) int`. All behaviour sits behind that function, so tests drive the real program with in-memory buffers and a temporary directory, without starting a process.
 - **One test seam.** Every test goes through `run` and checks only what a user can observe: output, exit code and the task file. Most tests are table-driven with `t.Run` subtests. Each test was either seen failing before its code existed, or mutation-checked: the guarded code was broken on purpose to confirm the test fails.
 - **Atomic file writes** with `os.CreateTemp`, `Sync` and `os.Rename`, and deferred cleanup that wraps the original error.
-- **Typed string status.** `type Status string` with constants is parsed once at the edge (`ParseStatus`, or the command name for `mark-*`) and trusted inside.
-- **Errors as values.** Sentinel errors (`ErrNotFound`, `ErrEmptyDescription`) are wrapped with context using `%w`, so the caller can check them with `errors.Is`.
+- **Typed string status.** `type Status string` with constants. A status given on the command line is parsed once at the edge (`ParseStatus` for the `list` filter, the command name itself for `mark-*`) and trusted inside.
+- **Errors as values.** Sentinel errors that callers check with `errors.Is`: `ErrNotFound` is wrapped with the task ID using `%w` ("task 7 not found"), `ErrEmptyDescription` is returned as is.
 - **Slices and copies.** `List` sorts a new slice instead of the task file's own, and `Delete` uses `slices.Delete`.
 
 ## Project layout
