@@ -65,7 +65,7 @@ $ task-cli mark-done 9
 error: task 9 not found
 ```
 
-Success messages go to stdout. Errors go to stderr as `error: ...`, and argument mistakes are followed by the usage text. The exit code is `0` on success and `1` on any error.
+Success messages go to stdout. Errors go to stderr as `error: ...`. Mistakes in the command line itself (unknown command or status, wrong number of arguments, invalid ID) are followed by the usage text. The exit code is `0` on success and `1` on any error.
 
 ## The task file
 
@@ -107,7 +107,7 @@ Known limitations:
 - **One test seam.** Every test goes through `run` and checks only what a user can observe: output, exit code and the task file. Most tests are table-driven with `t.Run` subtests. Each test was either seen failing before its code existed, or mutation-checked: the guarded code was broken on purpose to confirm the test fails.
 - **Atomic file writes** with `os.CreateTemp`, `Sync` and `os.Rename`, and deferred cleanup that wraps the original error.
 - **Typed string status.** `type Status string` with constants. A status given on the command line is parsed once at the edge (`ParseStatus` for the `list` filter, the command name itself for `mark-*`) and trusted inside.
-- **Errors as values.** Sentinel errors that callers check with `errors.Is`: `ErrNotFound` is wrapped with the task ID using `%w` ("task 7 not found"), `ErrEmptyDescription` is returned as is.
+- **Errors as values.** The domain exposes sentinel errors so that a future caller, such as an HTTP API, could tell them apart with `errors.Is` (for example, 404 vs 400) without parsing message text. `ErrNotFound` is wrapped with the task ID using `%w` ("task 7 not found"), and `ErrEmptyDescription` is returned as is. The CLI itself just prints them.
 - **Slices and copies.** `List` sorts a new slice instead of the task file's own, and `Delete` uses `slices.Delete`.
 
 ## Project layout
